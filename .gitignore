@@ -1,0 +1,9 @@
+main
+config.json
+*_log.txt
+*_log.log
+package-lock.json
+*.osm
+downloaded_tiles
+data
+node_modules
