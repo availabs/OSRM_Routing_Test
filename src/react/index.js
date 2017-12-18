@@ -50,7 +50,9 @@ class App extends React.Component {
 			<div style={ { height } }>
 				<Mapboxgl onClick={ extractLngLat(this.props.onMapClick) }
 					sources={ [this.state.source] }
-					layers={ [this.state.layer] }/>
+					layers={ [this.state.layer] }
+					zoom={ 12 }
+					center={ [-110.942376, 31.334095] }/>
 			</div>
 		)
 	}
