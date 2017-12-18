@@ -1,6 +1,8 @@
 export const MAP_CLICK = "MAP_CLICK"
 export const RECEIVE_ROUTE_GEOMETRY = "RECEIVE_ROUTE_GEOMETRY"
 
+import HOST from "./getHost"
+
 export const mapClick = coords =>
 	(dispatch, getState) => {
 		const state = getState();
@@ -15,7 +17,7 @@ const _mapClick = coords => ({
 	coords
 })
 
-const makeUrl = points => `http://localhost:5000/route/${ points.join(";") }`
+const makeUrl = points => `${ HOST }/route/${ points.join(";") }`
 
 const getRouteGeometry = points =>
 	dispatch => fetch(makeUrl(points))
