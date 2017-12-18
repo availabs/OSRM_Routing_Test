@@ -4,7 +4,7 @@ from __future__ import print_function
 from math import log, tan, pi, exp, atan
 from itertools import product
 from os.path import join, isdir, exists, isfile
-from os import listdir, mkdir
+from os import listdir, mkdir, remove
 
 from argparse import ArgumentParser
 
@@ -218,15 +218,23 @@ def checkOutDir(out_dir, tileSet):
 	if exists(out_dir) and isdir(out_dir):
 		files = [f for f in listdir(out_dir) if isfile(join(out_dir, f))]
 
+		oldTiles = []
+
 		regex = re.compile('^tile-(\d+-\d+-\d+).png$')
 
 		for f in files:
 			m = regex.match(f)
 			if m:
 				k = m.group(1)
-				if k in tileSet: del tileSet[k]
+				if k in tileSet:
+					del tileSet[k]
+				else:
+					oldTiles.append(f)
 
-	return tileSet
+		for tile in oldTiles:
+			path = join(out_dir, tile)
+			print("Removing extraneous tile: {}.".format(path))
+			remove(path)
 
 def main():
 	args = vars(parser.parse_args())
@@ -252,8 +260,8 @@ def main():
 			tileSet[key] = tile
 
 	print("Checking output directory.")
-	tileSet = checkOutDir(args["out_dir"], tileSet)
 
+	checkOutDir(args["out_dir"], tileSet)
 	tileList = tileSet.values()
 
 	#downloadData(args["out_dir"], tileList[0:5], args["api_key"])
