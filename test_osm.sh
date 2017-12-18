@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir data
+mkdir data/test_osm
 cp test_1.osm data/test_osm/test_1.osm
 
 OSM_DATA=data/test_osm/test_1.osm
