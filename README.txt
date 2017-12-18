@@ -11,6 +11,7 @@ If you are Alex Muro, this still might not make much sense!
 		this is to guarantee a single tile is retrieved
 "sudo apt-get install libsdl2-2.0" = instal SDl2
 "sudo apt-get install libsdl2-dev" = install SDL2 dev libraries
+"sudo apt-get install libsdl2-image-dev" = install SDL2_image library
 "make" = builds the c++ stuff into out file "main"
 "./main" = reads loaded tiles and generates an OSM XML file output to "test_1.osm"
 "test_osm.sh" = process the self-generated OSM file into OSRM data
