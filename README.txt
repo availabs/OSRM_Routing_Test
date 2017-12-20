@@ -9,9 +9,7 @@ If you are Alex Muro, this still might not make much sense!
 	I will send a config file (it contains my mapzen key so I don't want it public)
 	the bounding box in the config file is actually just a point (it's OK!)
 		this is to guarantee a single tile is retrieved
-"sudo apt-get install libsdl2-2.0" = instal SDl2
-"sudo apt-get install libsdl2-dev" = install SDL2 dev libraries
-"sudo apt-get install libsdl2-image-dev" = install SDL2_image library
+"sudo apt-get install libsdl2-2.0 libsdl2-dev libsdl2-image-dev" = instal SDl2 , SDL2 dev and  SDL2_image libraries
 "make" = builds the c++ stuff into out file "main"
 "./main" = reads loaded tiles and generates an OSM XML file output to "test_1.osm"
 "test_osm.sh" = process the self-generated OSM file into OSRM data
