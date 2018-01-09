@@ -3,7 +3,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const helmet = require("helmet");
 // const logfmt = require("logfmt");
-const cors = require("cors")
+// const cors = require("cors")
 
 const Webpack = require("webpack");
 const webpackMiddleware = require("webpack-dev-middleware");
@@ -21,7 +21,7 @@ function configureMiddleware(server, options) {
     index: "index.html",
     lazy: false
   }));
-  server.use(cors);
+  // server.use(cors);
   // server.use(function(req, res, next) {
   //   res.header("Access-Control-Allow-Origin", "*");
   //   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");

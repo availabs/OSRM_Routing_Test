@@ -82,13 +82,13 @@ def getTiles(zoom, lat1, lng1, lat2=None, lng2=None):
 	return tiles
 '''
 def downloadData(out_dir, tiles, api_key):
-	tileUrl = 'https://tile.mapzen.com/mapzen/terrain/v1/terrarium/{z}/{x}/{y}.png?api_key={k}'
+	TILE_URL = 'https://tile.mapzen.com/mapzen/terrain/v1/terrarium/{z}/{x}/{y}.png?api_key={k}'
 
 	if not exists(out_dir):
 		mkdir(out_dir)
 
 	for (z, x, y) in tiles:
-		response = urllib.urlopen(tileUrl.format(z=z, x=x, y=y, k=api_key))
+		response = urllib.urlopen(TILE_URL.format(z=z, x=x, y=y, k=api_key))
 
 		if response.getcode() != 200:
 			raise RuntimeError("Bad tile request: {}-{}-{}".format(z, x, y))
@@ -125,8 +125,8 @@ class ProgressBar(threading.Thread):
 		print("\rFINISHED\r")
 
 class DownloadThread(threading.Thread):
-	tileUrl = 'https://tile.mapzen.com/mapzen/terrain/v1/terrarium/{z}/{x}/{y}.png?api_key={k}'
-
+	TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+	
 	def __init__(self, out_dir, tiles, api_key, lock):
 		threading.Thread.__init__(self)
 		self.tiles = tiles
@@ -150,7 +150,7 @@ class DownloadThread(threading.Thread):
 	def download(self):
 		z, x, y = self.tile
 		k = self.api_key
-		url = DownloadThread.tileUrl.format(z=z, x=x, y=y, k=k)
+		url = DownloadThread.TILE_URL.format(z=z, x=x, y=y)
 
 		response = urllib.urlopen(url)
 

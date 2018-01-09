@@ -1,6 +1,10 @@
 const osrm = require("osrm");
 
-const OSRM = new osrm(process.env.OSRM_DATA);
+const OSRM_OPTIONS = {
+	path: process.env.OSRM_DATA,
+	algorithm: "MLD"
+}
+const OSRM = new osrm(OSRM_OPTIONS);
 
 const splitCoords = coords => coords.split(";").reduce((a, c) => (a.push(c.split(",").map(d => +d)), a), []);
 

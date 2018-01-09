@@ -6,7 +6,7 @@ import HOST from "./getHost"
 export const mapClick = coords =>
 	(dispatch, getState) => {
 		const state = getState();
-		if (state.mapPoints.length) {
+		if (state.mapPoints.length && coords) {
 			dispatch(getRouteGeometry(state.mapPoints.concat([coords])));
 		}
 		dispatch(_mapClick(coords));

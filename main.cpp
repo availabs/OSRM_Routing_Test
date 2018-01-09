@@ -1,53 +1,14 @@
 #include <dirent.h>
 
 #include <algorithm>
-#include <cctype>
-#include <iostream>
 #include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-
-#include "src/Tile.h"
-#include "src/SimpleXmlWriter.h"
-
-int runTest(std::string& test) {
-	std::transform(test.begin(), test.end(), test.begin(), ::toupper);
-	if (test == "XML") {
-		std::cout << "RUNNING TEST: " << test << std::endl;
-		avl::SimpleXmlWriter("TEST.xml")
-			.openTag("osm", "version", 0.6, "generator", "JOSM")
-				.addTag("node", "id", 1, "lat", 123.45, "lon", 123.45)
-				.addTag("node", "id", 2, "lat", 456.78, "lon", 456.78)
-				.openTag("way", "id", 3, "visible", "true")
-					.addTag("nd", "ref", 1)
-					.addTag("nd", "ref", 2)
-				.closeTag()
-				.openTag("way", "id", 4, "visible", "false")
-					.addTag("nd", "ref", 1)
-					.addTag("nd", "ref", 2)
-				.closeTag()
-			.closeTag();
-		avl::SimpleXmlWriter("TEST2.xml")
-			.openTag("osm", "version", 0.6, "generator", "JOSM")
-				.addTag("node", "id", 1, "lat", 123.45, "lon", 123.45)
-				.addTag("node", "id", 2, "lat", 456.78, "lon", 456.78)
-				.openTag("way", "id", 3, "visible", "true")
-					.addTag("nd", "ref", 1)
-					.addTag("nd", "ref", 2)
-				.closeTag()
-				.openTag("way", "id", 4, "visible", "false")
-					.addTag("nd", "ref", 1)
-					.addTag("nd", "ref", 2);
-	}
-	else {
-		return 1;
-	}
-	return 0;
-}
+#include "src/cpp/SimpleXmlWriter.h"
+#include "src/cpp/Tile.h"
+#include "src/cpp/utils.h"
 
 void writeWay(avl::SimpleXmlWriter& writer, int wayId, int nodeId1, int nodeId2) {
 	writer.openTag("way", "id", wayId, "visible", "true", "version", 1)
@@ -58,26 +19,21 @@ void writeWay(avl::SimpleXmlWriter& writer, int wayId, int nodeId1, int nodeId2)
 		.addTag("tag", "k", "highway", "v", "path");
 	writer.closeTag();
 }
+void writeWay(avl::SimpleXmlWriter& writer, int wayId, avl::Node& node1, avl::Node& node2) {
+	writer.openTag("way", "id", wayId, "visible", "true", "version", 1)
+		.addTag("nd", "ref", node1.id)
+		.addTag("nd", "ref", node2.id)
+		.addTag("tag", "k", "slope", "v", node2.height - node1.height)
+		.addTag("tag", "k", "oneway", "v", "no")
+		.addTag("tag", "k", "duration", "v", "PT5M")
+		.addTag("tag", "k", "highway", "v", "path");
+	writer.closeTag();
+}
 
 int main(int args, char* argv[]) {
 
 	if (args < 2) {
-		std::cout << "You must supply a directory argument." << std::endl;
-		return 1;
-	}
-
-	std::string arg2{ argv[1] };
-	if (arg2.substr(0, 4) == "test") {
-		std::string test{ arg2.substr(5) };
-		return runTest(test);
-	}
-
-	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-		SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
-		return 1;
-	}
-	if ((IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG) != IMG_INIT_PNG) {
-		SDL_Log("Unable to initialize SDL_image: %s", IMG_GetError());
+		avl::log("You must supply a directory argument.");
 		return 1;
 	}
 
@@ -87,14 +43,15 @@ int main(int args, char* argv[]) {
 	struct dirent* ent;
 
 	if ((dir = opendir(directory.c_str())) != NULL) {
-		std::cout << "Opened directory: " << argv[1] << "." << std::endl;
+		avl::log("Opened directory:", argv[1]);
 
 		std::regex rgx{ "^tile-([[:digit:]]+)-([[:digit:]]+)-([[:digit:]]+).png$" };
 		std::smatch match{};
 
-		std::vector<avl::Tile> tiles{};
+		//std::vector<avl::Tile> tiles{};
+		std::unordered_map<std::string, avl::Tile> tiles{};
 
-		int zoom, minX{ -1 }, minY{ -1 }, maxX{ 0 }, maxY{ 0 };
+		int zoom, minX{ 123456789 }, minY{ 123456789 }, maxX{ 0 }, maxY{ 0 };
 
 		while ((ent = readdir(dir)) != NULL) {
 			std::string file{ ent->d_name };
@@ -106,16 +63,17 @@ int main(int args, char* argv[]) {
 
 				zoom = z;
 
-				minX = minX == -1 ? x : std::min(minX, x);
-				minY = minY == -1 ? y : std::min(minY, y);
+				minX = std::min(minX, x);
+				minY = std::min(minY, y);
 
 				maxX = std::max(maxX, x);
 				maxY = std::max(maxY, y);
 
-				tiles.push_back({ z, x, y, file });
+				avl::Tile tile{ z, x, y, file };
+				tiles.insert({ tile.id, tile });
 			}
 		}
-		std::cout << "Generated: " << tiles.size() << " tiles." << std::endl;
+		avl::log("Generated:", tiles.size(), "tiles");
 
 		avl::SimpleXmlWriter writer{ "test_1.osm" };
 		writer.openTag("osm", "version", "0.6");
@@ -127,59 +85,127 @@ int main(int args, char* argv[]) {
 
 		writer.addTag("bounds", "minlat", minLat, "minlon", minLng, "maxlat", maxLat, "maxlon", maxLng);
 
-		std::unordered_map<std::string, int> nodeIdMap{};
+		int nodeId{ 0 },
+			wayId{ 0 };
 
-		for (auto& tile : tiles) {
-			if (tile.loadNodes(directory)) {
-				int i{ 0 },
-					objectId{ 0 };
+		for (auto& pair : tiles) {
+			avl::Tile& tile{ pair.second };
+			tile.loadNodes(directory, nodeId);
+			tile.makeEdges();
+			tile.simplify();
+		}
+
+		return 0;
+
+		for (auto& pair : tiles) {
+			avl::Tile& tile{ pair.second };
+
+			if (tile.loadNodes(directory, nodeId)) {
 				for (avl::Node& node : tile.nodes) {
-					std::string nodeId{ tile.getNodeId(i) };
-					nodeIdMap[nodeId] = ++objectId;
-					writer.addTag("node", "id", objectId, "lat", node.lat, "lon", node.lng, "version", 1);
-					++i;
+					writer.addTag("node", "id", node.id, "lat", node.lat, "lon", node.lng, "version", 1);
 				}
-				i = 0;
-				for (avl::Node& node : tile.nodes) {
-					int r = i / 256,
-						c = i % 256;
+			}
+		}
 
-					std::string strId{ tile.getNodeId(i) };
-					int nodeId{ nodeIdMap[strId] };
+		std::string neighborId{};
+		for (auto& pair : tiles) {
+			avl::Tile& tile{ pair.second };
 
-					// east
-					if (c < 255) {
-						int wayId{ ++objectId };
-						std::string refStrId{ tile.getNodeId(i + 1) };
-						int refNodeId{ nodeIdMap[refStrId] };
-						writeWay(writer, wayId, nodeId, refNodeId);
-					}
+			int i{ 0 };
+			for (avl::Node& node : tile.nodes) {
+				int r = (i / 256),
+					c = (i % 256);
 
-					// south-east
-					// if (r < 255 && c < 255) {
-					// 	int wayId{ ++objectId };
-					// 	std::string refStrId{ tile.getNodeId(i + 257) };
-					// 	int refNodeId{ nodeIdMap[refStrId] };
-					// 	writeWay(writer, wayId, nodeId, refNodeId);
-					// }
+				avl::Node& node1{ tile.nodes[i] };
 
-					// south
-					if (r < 255) {
-						int wayId{ ++objectId };
-						std::string refStrId{ tile.getNodeId(i + 256) };
-						int refNodeId{ nodeIdMap[refStrId] };
-						writeWay(writer, wayId, nodeId, refNodeId);
-					}
-
-					// south-west
-					// if (r < 255 && c > 0) {
-					// 	int wayId{ ++objectId };
-					// 	std::string refStrId{ tile.getNodeId(i + 255) };
-					// 	int refNodeId{ nodeIdMap[refStrId] };
-					// 	writeWay(writer, wayId, nodeId, refNodeId);
-					// }
-					++i;
+				// east
+				if (c + 1 < 256) {
+					avl::Node& node2{ tile.nodes[i + 1] };
+					// writeWay(writer, ++wayId, node1.id, node2.id);
+					writeWay(writer, ++wayId, node1, node2);
 				}
+				// south-east
+				if ((r + 1 < 256) && (c + 1 < 256)) {
+					avl::Node& node2{ tile.nodes[i + 256 + 1] };
+					// writeWay(writer, ++wayId, node1.id, node2.id);
+					writeWay(writer, ++wayId, node1, node2);
+				}
+				//south
+				if (r + 1 < 256) {
+					avl::Node& node2{ tile.nodes[i + 256] };
+					// writeWay(writer, ++wayId, node1.id, node2.id);
+					writeWay(writer, ++wayId, node1, node2);
+				}
+				// south-west
+				if ((r + 1 < 256) && (c - 1 > 0)) {
+					avl::Node& node2{ tile.nodes[i + 256 - 1] };
+					// writeWay(writer, ++wayId, node1.id, node2.id);
+					writeWay(writer, ++wayId, node1, node2);
+				}
+				++i;
+			}
+
+			neighborId = avl::Tile::tileId(tile.z, tile.x - 1, tile.y);
+			if (tiles.count(neighborId)) {
+				avl::Tile& neighborTile{ tiles[neighborId] };
+				for (int i{ 0 }; i < 256 * 256; i += 256) {
+					avl::Node tileNode{ tile.nodes[i] },
+						neighborNode{ neighborTile.nodes[i + 255] };
+					// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+					writeWay(writer, ++wayId, tileNode, neighborNode);
+
+					if (i > 0) {
+						neighborNode = neighborTile.nodes[i + 255 - 256];
+						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+						writeWay(writer, ++wayId, tileNode, neighborNode);
+					}
+					if (i < 255 * 256) {
+						neighborNode = neighborTile.nodes[i + 255 + 256];
+						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+						writeWay(writer, ++wayId, tileNode, neighborNode);
+					}
+				}
+			}
+
+			neighborId = avl::Tile::tileId(tile.z, tile.x, tile.y - 1);
+			if (tiles.count(neighborId)) {
+				avl::Tile& neighborTile{ tiles[neighborId] };
+				for (int i{ 0 }; i < 256; ++i) {
+					avl::Node tileNode{ tile.nodes[i] },
+						neighborNode{ neighborTile.nodes[i + 256 * 255] };
+					// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+					writeWay(writer, ++wayId, tileNode, neighborNode);
+					if (i > 0) {
+						neighborNode = neighborTile.nodes[i + 256 * 255 - 1];
+						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+						writeWay(writer, ++wayId, tileNode, neighborNode);
+					}
+					if (i < 255) {
+						neighborNode = neighborTile.nodes[i + 256 * 255 + 1];
+						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+						writeWay(writer, ++wayId, tileNode, neighborNode);
+					}
+				}
+			}
+
+			neighborId = avl::Tile::tileId(tile.z, tile.x + 1, tile.y - 1);
+			if (tiles.count(neighborId)) {
+				avl::Tile& neighborTile{ tiles[neighborId] };
+
+				avl::Node tileNode{ tile.nodes[255] },
+					neighborNode{ neighborTile.nodes[256 * 255] };
+				// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+				writeWay(writer, ++wayId, tileNode, neighborNode);
+			}
+
+			neighborId = avl::Tile::tileId(tile.z, tile.x - 1, tile.y - 1);
+			if (tiles.count(neighborId)) {
+				avl::Tile& neighborTile{ tiles[neighborId] };
+
+				avl::Node tileNode{ tile.nodes[0] },
+					neighborNode{ neighborTile.nodes[256 * 256 - 1] };
+				// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
+				writeWay(writer, ++wayId, tileNode, neighborNode);
 			}
 		}
 

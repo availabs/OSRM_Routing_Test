@@ -62,7 +62,10 @@ class MapboxglMap extends React.Component {
 			sources,
 			layers
 		});
-console.log("<Mapboxgl.onMapLoad>",sources)
+
+		if (this.props.cursor) {
+			mbglMap.getCanvas().style.cursor = this.props.cursor;
+		}
 
 		this.checkDragPan(this.props);
 		this.checkScrollZoom(this.props);
@@ -171,7 +174,9 @@ MapboxglMap.defaultProps = {
 	accessToken: 'pk.eyJ1IjoiYW0zMDgxIiwiYSI6IkxzS0FpU0UifQ.rYv6mHCcNd7KKMs7yhY3rw',
 
 	layers: [],
-	sources: []
+	sources: [],
+
+	cursor: null
 }
 
 export default MapboxglMap;

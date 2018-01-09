@@ -16,7 +16,24 @@ const mapDispatchToProps = dispatch => ({
 })
 
 const extractLngLat = onMapClick =>
-	e => (console.log(e),onMapClick([e.lngLat.lng, e.lngLat.lat]))
+	e => (console.log(e.lngLat),onMapClick([e.lngLat.lng, e.lngLat.lat]))
+
+const divStyles = {
+	position: "absolute",
+	left: "20px",
+	top: "20px"
+}
+const buttonStyles = {
+	borderRadius: "4px",
+	padding: "5px 20px"
+}
+const ClearButton = ({ onMapClick }) =>
+	<div style={ divStyles }>
+		<button onClick={ () => onMapClick(null) }
+			style={ buttonStyles }>
+			CLEAR
+		</button>
+	</div>
 
 //-113.205717,35.237149/-113.065857,35.291823
 class App extends React.Component {
@@ -51,8 +68,11 @@ class App extends React.Component {
 				<Mapboxgl onClick={ extractLngLat(this.props.onMapClick) }
 					sources={ [this.state.source] }
 					layers={ [this.state.layer] }
-					zoom={ 12 }
-					center={ [-110.942376, 31.334095] }/>
+					zoom={ 10 }
+					center={ [-110.942376, 31.334095] }
+					style={ 'mapbox://styles/mapbox/satellite-v9' }
+					cursor="pointer"/>
+				<ClearButton onMapClick={ this.props.onMapClick }/>
 			</div>
 		)
 	}
