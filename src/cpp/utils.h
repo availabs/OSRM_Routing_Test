@@ -1,14 +1,17 @@
+#include <iomanip>
 #include <iostream>
 
 namespace avl {
 
-	template<class T>
-	void log(T t) {
-		std::cout << t << std::endl;
-	}
+	void logStream(std::ostream&);
+	std::ostream& logStream();
+
+	void setLogPrecision(int);
+
+	void log();
 	template<class T, class ...Args>
 	void log(T t, Args ...args) {
-		std::cout << t << " ";
+		logStream() << t << " ";
 		log(args...);
 	}
 

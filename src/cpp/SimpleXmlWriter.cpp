@@ -1,5 +1,7 @@
 #include "SimpleXmlWriter.h"
 
+#include <iomanip>
+
 namespace avl {
 
 	SimpleXmlWriter::SimpleXmlWriter(std::string& ofn):

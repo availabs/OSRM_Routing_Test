@@ -171,7 +171,7 @@ class DataDownloader:
 	def __init__(self, numThreads=4):
 		self.numThreads = numThreads
 
-	def download(self, out_dir, tiles, api_key):
+	def download(self, out_dir, tiles, api_key=None):
 		if not len(tiles):
 			return print("<DataDownloader> No tiles required to be downloaded.")
 
@@ -190,16 +190,15 @@ class DataDownloader:
 
 		return
 
-REQUIRED_ARGS = set(["zoom", "bounding_boxes", "out_dir", "api_key", "num_threads"])
+REQUIRED_ARGS = set(["zoom", "bounding_boxes", "out_dir", "num_threads"])
 
 parser = ArgumentParser(description="For downloading elevation data.")
 
-parser.add_argument('--zoom', '-z', type=int, default=12, help="Tile zoom level. Defaults to 12.")
-parser.add_argument('--bounding_boxes', '-b', default='32.871006,-114.962230,31.099260,-108.819491',
+parser.add_argument('--zoom', '-z', type=int, default=14, help="Tile zoom level. Defaults to 12.")
+parser.add_argument('--bounding_boxes', '-b', default='31.450306100007623,-110.96504936101759',
 				help='''List of bounding boxes. Defaults to southern Arizona.''')
 parser.add_argument('--out_dir', '-o', default="downloaded_tiles", help="output directory.")
-parser.add_argument('--api_key', '-k', default=None, help="Mapzen API key.")
-parser.add_argument('--num_threads', '-t', type=int, default=8, help="Number of threads created. Defaults to 8.")
+parser.add_argument('--num_threads', '-t', type=int, default=4, help="Number of threads created. Defaults to 8.")
 
 parser.add_argument('--config', '-c', default=None,
 				help='''Name of config file. Any supplied command 
@@ -209,7 +208,7 @@ def checkArgs(args):
 	required = REQUIRED_ARGS.copy()
 
 	for (k, v) in args.items():
-		if v and k in required: required.remove(k)
+		if k in required: required.remove(k)
 
 	if len(required):
 		raise RuntimeError("Missing arguments: {}".format(",".join(required)))
@@ -264,9 +263,7 @@ def main():
 	checkOutDir(args["out_dir"], tileSet)
 	tileList = tileSet.values()
 
-	#downloadData(args["out_dir"], tileList[0:5], args["api_key"])
-
-	DataDownloader(args["num_threads"]).download(args["out_dir"], tileList, args["api_key"])
+	DataDownloader(args["num_threads"]).download(args["out_dir"], tileList)
 
 
 if __name__ == "__main__":

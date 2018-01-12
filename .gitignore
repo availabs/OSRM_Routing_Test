@@ -8,3 +8,4 @@ downloaded_tiles
 data
 node_modules
 swapfile
+src/geojson.json

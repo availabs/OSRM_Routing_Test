@@ -1,14 +1,19 @@
 #include <dirent.h>
 
-#include <algorithm>
 #include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#define WRITE_GEOJSON true
+
 #include "src/cpp/SimpleXmlWriter.h"
 #include "src/cpp/Tile.h"
 #include "src/cpp/utils.h"
+
+#if WRITE_GEOJSON
+	#include "src/cpp/GeojsonWriter.h"
+#endif
 
 void writeWay(avl::SimpleXmlWriter& writer, int wayId, int nodeId1, int nodeId2) {
 	writer.openTag("way", "id", wayId, "visible", "true", "version", 1)
@@ -38,11 +43,16 @@ int main(int args, char* argv[]) {
 	}
 
 	std::string directory{ argv[1] };
+	int length = directory.length();
+	if (directory[length - 1] == '/') {
+		directory = directory.substr(0, length - 1);
+	}
 
-	DIR* dir;
+	DIR* dir{ nullptr };
 	struct dirent* ent;
+	auto mainExit = [=](int v){ if (dir) closedir(dir); return v; };
 
-	if ((dir = opendir(directory.c_str())) != NULL) {
+	if ((dir = opendir(directory.c_str())) != nullptr) {
 		avl::log("Opened directory:", argv[1]);
 
 		std::regex rgx{ "^tile-([[:digit:]]+)-([[:digit:]]+)-([[:digit:]]+).png$" };
@@ -53,7 +63,7 @@ int main(int args, char* argv[]) {
 
 		int zoom, minX{ 123456789 }, minY{ 123456789 }, maxX{ 0 }, maxY{ 0 };
 
-		while ((ent = readdir(dir)) != NULL) {
+		while ((ent = readdir(dir)) != nullptr) {
 			std::string file{ ent->d_name };
 
 			if (std::regex_match(file, match, rgx)) {
@@ -86,64 +96,58 @@ int main(int args, char* argv[]) {
 		writer.addTag("bounds", "minlat", minLat, "minlon", minLng, "maxlat", maxLat, "maxlon", maxLng);
 
 		int nodeId{ 0 },
-			wayId{ 0 };
+			wayId{ 0 },
+
+			totalNodes{ 0 },
+			totalEdges{ 0 };
 
 		for (auto& pair : tiles) {
 			avl::Tile& tile{ pair.second };
+
 			tile.loadNodes(directory, nodeId);
 			tile.makeEdges();
 			tile.simplify();
-		}
 
-		return 0;
+			totalNodes += tile.numNodes();
+			totalEdges += tile.numEdges();
 
-		for (auto& pair : tiles) {
-			avl::Tile& tile{ pair.second };
-
-			if (tile.loadNodes(directory, nodeId)) {
-				for (avl::Node& node : tile.nodes) {
+			for (auto& node : tile.nodes) {
+				if (node.active) {
 					writer.addTag("node", "id", node.id, "lat", node.lat, "lon", node.lng, "version", 1);
 				}
 			}
 		}
 
-		std::string neighborId{};
+		avl::log("<tile_process> Generated", totalNodes, "nodes, and", totalEdges, "edges.");
+
+		// mainExit(0);
+#if WRITE_GEOJSON
+		avl::GeojsonWriter geoWriter{ "src/geojson.json" };
+#endif
+
 		for (auto& pair : tiles) {
 			avl::Tile& tile{ pair.second };
 
-			int i{ 0 };
-			for (avl::Node& node : tile.nodes) {
-				int r = (i / 256),
-					c = (i % 256);
+			for (auto& pair : tile.edgeMap) {
+				int index1{ pair.first };
+				avl::Node& node1{ tile.nodes[index1] };
 
-				avl::Node& node1{ tile.nodes[i] };
+				if (!node1.active) continue;
 
-				// east
-				if (c + 1 < 256) {
-					avl::Node& node2{ tile.nodes[i + 1] };
-					// writeWay(writer, ++wayId, node1.id, node2.id);
-					writeWay(writer, ++wayId, node1, node2);
+				std::vector<int>& edges{ pair.second };
+
+				for (auto index2 : edges) {
+					avl::Node& node2{ tile.nodes[index2] };
+					if (node2.active) {
+						writeWay(writer, ++wayId, node1, node2);
+#if WRITE_GEOJSON
+						geoWriter(node1, node2);
+#endif
+					}
 				}
-				// south-east
-				if ((r + 1 < 256) && (c + 1 < 256)) {
-					avl::Node& node2{ tile.nodes[i + 256 + 1] };
-					// writeWay(writer, ++wayId, node1.id, node2.id);
-					writeWay(writer, ++wayId, node1, node2);
-				}
-				//south
-				if (r + 1 < 256) {
-					avl::Node& node2{ tile.nodes[i + 256] };
-					// writeWay(writer, ++wayId, node1.id, node2.id);
-					writeWay(writer, ++wayId, node1, node2);
-				}
-				// south-west
-				if ((r + 1 < 256) && (c - 1 > 0)) {
-					avl::Node& node2{ tile.nodes[i + 256 - 1] };
-					// writeWay(writer, ++wayId, node1.id, node2.id);
-					writeWay(writer, ++wayId, node1, node2);
-				}
-				++i;
 			}
+
+			std::string neighborId{};
 
 			neighborId = avl::Tile::tileId(tile.z, tile.x - 1, tile.y);
 			if (tiles.count(neighborId)) {
@@ -153,16 +157,25 @@ int main(int args, char* argv[]) {
 						neighborNode{ neighborTile.nodes[i + 255] };
 					// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 					writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+					geoWriter(tileNode, neighborNode);
+#endif
 
 					if (i > 0) {
 						neighborNode = neighborTile.nodes[i + 255 - 256];
 						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 						writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+						geoWriter(tileNode, neighborNode);
+#endif
 					}
 					if (i < 255 * 256) {
 						neighborNode = neighborTile.nodes[i + 255 + 256];
 						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 						writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+						geoWriter(tileNode, neighborNode);
+#endif
 					}
 				}
 			}
@@ -175,15 +188,25 @@ int main(int args, char* argv[]) {
 						neighborNode{ neighborTile.nodes[i + 256 * 255] };
 					// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 					writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+					geoWriter(tileNode, neighborNode);
+#endif
+
 					if (i > 0) {
 						neighborNode = neighborTile.nodes[i + 256 * 255 - 1];
 						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 						writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+						geoWriter(tileNode, neighborNode);
+#endif
 					}
 					if (i < 255) {
 						neighborNode = neighborTile.nodes[i + 256 * 255 + 1];
 						// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 						writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+						geoWriter(tileNode, neighborNode);
+#endif
 					}
 				}
 			}
@@ -196,6 +219,9 @@ int main(int args, char* argv[]) {
 					neighborNode{ neighborTile.nodes[256 * 255] };
 				// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 				writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+				geoWriter(tileNode, neighborNode);
+#endif
 			}
 
 			neighborId = avl::Tile::tileId(tile.z, tile.x - 1, tile.y - 1);
@@ -206,11 +232,11 @@ int main(int args, char* argv[]) {
 					neighborNode{ neighborTile.nodes[256 * 256 - 1] };
 				// writeWay(writer, ++wayId, tileNode.id, neighborNode.id);
 				writeWay(writer, ++wayId, tileNode, neighborNode);
+#if WRITE_GEOJSON
+				geoWriter(tileNode, neighborNode);
+#endif
 			}
 		}
-
-		closedir(dir);
 	}
-
-	return 0;
+	mainExit(0);
 }

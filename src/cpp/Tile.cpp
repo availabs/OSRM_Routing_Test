@@ -1,7 +1,10 @@
 #include "Tile.h"
 
+#include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <sstream>
+#include <unordered_set>
 
 #include "./utils.h"
 #include "./PNG_Image.h"
@@ -10,13 +13,9 @@ namespace avl {
 
 	constexpr double INVERSE_256 = 1.0 / 256.0;
 	constexpr double TO_DEG = 180.0 / M_PI;
+	constexpr double TO_RAD = M_PI / 180.0;
+	constexpr double EARTH_MEAN_RADIUS = 6371000.0;
 
-		double lat,
-			lng,
-			height;
-		int id;
-		bool simplified,
-			active;
 	Node::Node():
 		lat{ 0.0 }, lng{ 0.0 }, height{ 0.0 }, id{ -1 }, simplified{ false }, active{ false } {}
 	Node::Node(double lt, double lg, double h, int i, bool s, bool a):
@@ -27,6 +26,24 @@ namespace avl {
 	Tile::Tile(int _z, int _x, int _y, std::string& f):
 		z{ _z }, x{ _x }, y{ _y },
 		id{ tileId(_z, _x, _y) }, file{ f }, nodes{} {}
+
+	int Tile::numNodes() {
+		auto accum = [=] (int a, const Node& n) {
+			return a + static_cast<int>(n.active);
+		};
+		return std::accumulate(nodes.begin(), nodes.end(), 0.0, accum);
+	}
+	int Tile::numEdges() {
+		auto accum = [=] (int a, const std::pair<int, std::vector<int>>& p) {
+			if (!nodes[p.first].active) return a;
+			int edges{ 0 };
+			for (auto i : edgeMap[p.first]) {
+				edges += static_cast<int>(nodes[i].active);
+			}
+			return a + edges;
+		};
+		return std::accumulate(edgeMap.begin(), edgeMap.end(), 0.0, accum);
+	}
 
 	bool Tile::loadNodes(std::string& dir, int& nodeId) {
 		std::string url = join(dir, file);
@@ -46,7 +63,7 @@ namespace avl {
 						hght = color2height(pxl.r, pxl.g, pxl.b);
 
 					int index = row * 256 + column;
-					nodes[index] = std::move(Node{ lat, lng, hght, nodeId++, false, true });
+					nodes[index] = std::move(Node{ lat, lng, hght, ++nodeId, false, true });
 				}
 			}
 			return true;
@@ -55,86 +72,91 @@ namespace avl {
 		log("<avl::Tile::loadNodes> [Tile: " + id + "] Failed to load image file: " + url + ".");
 		return false;
 	}
-	bool Tile::makeEdges() {
+	int Tile::makeEdges() {
+		int num{ 0 };
 		for (int r{ 0 }; r < 256; ++r) {
 			for (int c{ 0 }; c < 256; ++c) {
 				int i = r * 256 + c;
 				edgeMap[i] = std::vector<int>{};
+				// south
 				if (r < 255) {
 					edgeMap[i].push_back(i + 256);
+					++num;
 				}
+				// east
 				if (c < 255) {
 					edgeMap[i].push_back(i + 1);
+					++num;
 				}
+				// south-east
 				if (r < 255 && c < 255) {
 					edgeMap[i].push_back(i + 256 + 1);
+					++num;
 				}
+				// south-west
 				if (r < 255 && c > 0) {
 					edgeMap[i].push_back(i + 256 - 1);
+					++num;
 				}
 			}
 		}
+		return num;
 	}
-	bool Tile::simplify() {
+	int Tile::simplify() {
 		if (!edgeMap.size()) {
 			log("<Tile::simplify> [Tile: " + id + "] You must run <Tile::makeEdges> before attempting to simplify.");
 			return false;
 		}
 		log("<Tile::simplify> [Tile: " + id + "] START.");
 
-		std::vector<int> nodesInsideSquare{}, temp{};
+		std::vector<int> square{}, temp{};
 
-		for (int r{ 0 }; r < 256; ++r) {
-			for (int c{ 0 }; c < 256; ++c) {
-				int index{ r * 256 + c },
-					size{ 4 };
+		for (int r{ 0 }; r < 256 - 4; ++r) {
+			for (int c{ 0 }; c < 256 - 4; ++c) {
+				int size{ 4 },
+					successfulSize{ 0 };
 
-				if (nodes[index].simplified) continue;
+				while (size <= 64 && getNodesOfSquare(r, c, size, temp)) {
 
-				while (getNodesInsideSquare(index, size, temp)) {
+					if (!isSquareValid(size, temp)) break;
 
-					double avgHeight{ getAverageHeight(temp) };
+					std::vector<int> inside{ getNodesInsideSquare(temp) };
 
-					if (!okToSimplify(temp, avgHeight)) {
-						break;
-					}
+					double avgHeight{ getAverageHeight(inside) };
 
-					nodesInsideSquare = temp;
+					if (!okToSimplify(avgHeight, inside)) break;
 
+					square = temp;
+					successfulSize = size;
 					++size;
 				}
 
-				if (!nodesInsideSquare.empty()) {
-					nodesRemoved += nodesInsideSquare.size();
+				if (successfulSize) {
+					nodesRemoved += condenseNodesInsideSquare(square);
 
-					for (auto id : nodesInsideSquare) {
-						nodes[id].simplified = true;
-					}
+					c += successfulSize - 2;
 				}
 
-				nodesInsideSquare.clear();
+				square.clear();
 				temp.clear();
 			}
 		}
 		log("<Tile::simplify> [Tile: " + id + "] Removed", nodesRemoved, "nodes.");
-		return true;
+		return nodesRemoved;
 	}
 
-	bool Tile::getNodesInsideSquare(int index, int size, std::vector<int>& vec) {
-		if (size < 4 || size > 64) return false;
-
+	bool Tile::getNodesOfSquare(int row, int column, int size, std::vector<int>& vec) {
 		std::vector<int> n{};
 
-		int prevSize = sqrt(vec.size()),
-			innerSize = size - 2;
+		int prevSize = sqrt(vec.size());
 
-		for (int r{ 0 }; r < innerSize; ++r) {
-			for (int c{ 0 }; c < innerSize; ++c) {
+		for (int r{ 0 }; r < size; ++r) {
+			for (int c{ 0 }; c < size; ++c) {
 
-				if (prevSize && (r != (innerSize - 1)) && (c != (innerSize - 1))) continue;
+				if (prevSize && (r != (size - 1)) && (c != (size - 1))) continue;
 
-				int i{ index + 256 + 1 + r * 256 + c };
-				if (i < 256 * 256) {
+				int i{ (row + r) * 256 + column + c };
+				if (((row + r) < 256) && ((column + c) < 256)) {
 					n.push_back(i);
 				}
 				else {
@@ -142,29 +164,86 @@ namespace avl {
 				}
 			}
 		}
-
 		vec.insert(vec.end(), n.begin(), n.end());
 		return true;
 	}
+	bool Tile::isSquareValid(int size, std::vector<int>& vec) {
+		if (size * size != static_cast<int>(vec.size())) return false;
+		for (auto i : vec) {
+			if (nodes[i].simplified || !nodes[i].active) return false;
+		}
+		return true;
+	}
+	std::vector<int> Tile::getNodesInsideSquare(std::vector<int>& vec) {
+		int size = std::sqrt(vec.size());
+		std::vector<int> in{};
+		std::sort(vec.begin(), vec.end());
+		for (int r{ 0 }; r < size; ++r) {
+			for (int c{ 0 }; c < size; ++c) {
+				if (r == 0 || c == 0 || r == (size - 1) || c == (size - 1)) continue;
+				int i{ r * size + c };
+				in.push_back(vec[i]);
+			}
+		}
+		return in;
+	}
 	double Tile::getAverageHeight(std::vector<int>& vec) {
 		double avgHeight{ 0.0 };
-		for (auto id : vec) {
-			avgHeight += nodes[id].height;
+		for (auto index : vec) {
+			avgHeight += nodes[index].height;
 		}
 		avgHeight /= static_cast<double>(vec.size());
 		return avgHeight;
 	}
-	bool Tile::okToSimplify(std::vector<int>& vec, double avg) {
-		for (auto id : vec) {
-			Node& node{ nodes[id] };
-
-			if (node.simplified) return false;
-
-			if (std::abs(node.height - avg) >= 7.0) {
+	bool Tile::okToSimplify(double avg, std::vector<int>& vec) {
+		double inv = 1.0 / avg;
+		for (auto index : vec) {
+			Node& node{ nodes[index] };
+			if (std::abs((node.height - avg) * inv) > 0.0075) {
 				return false;
 			}
 		}
 		return true;
+	}
+	int Tile::condenseNodesInsideSquare(std::vector<int>& vec) {
+		std::unordered_set<int> edgeSet(vec.begin(), vec.end());
+		std::vector<int> inside{ getNodesInsideSquare(vec) };
+		std::sort(inside.begin(), inside.end());
+
+		int index{ inside[0] };
+		Node& node{ nodes[index] };
+
+		double minLat{ node.lat }, maxLat{ node.lat }, minLng{ node.lng }, maxLng{ node.lng };
+
+		for (auto ndx : inside) {
+			Node& nd{ nodes[ndx] };
+			nd.active = false;
+			nd.simplified = true;
+
+			minLat = std::min(minLat, nd.lat);
+			maxLat = std::max(maxLat, nd.lat);
+			minLng = std::min(minLng, nd.lng);
+			maxLng = std::max(maxLng, nd.lng);
+
+			nd.lat = 0.0;
+			nd.lng = 0.0;
+			nd.height = 0.0;
+
+			edgeSet.erase(ndx);
+			edgeMap.erase(ndx);
+		}
+
+		node.active = true;
+		node.lat = (minLat + maxLat) * 0.5;
+		node.lng = (minLng + maxLng) * 0.5;
+
+		for (auto i : { index - 1, index - 256, index - 256 - 1, index - 256 + 1 }) {
+			edgeSet.erase(i);
+		}
+		edgeMap[index] = std::vector<int>{};
+		edgeMap[index].insert(edgeMap[index].begin(), edgeSet.begin(), edgeSet.end());
+
+		return inside.size() - 1;
 	}
 
 	double Tile::color2height(int r, int g, int b) {
@@ -193,6 +272,22 @@ namespace avl {
 		double lat = y1 * TO_DEG;
 
 		return lat;
+	}
+	double Tile::distance(double lat1, double lng1, double lat2, double lng2) {
+		double theta1 = lat1 * TO_RAD,
+			theta2 = lat2 * TO_RAD,
+			deltaTheta = (lat2 - lat1) * TO_RAD,
+			delatLambda = (lng2 - lng1) * TO_RAD,
+
+			a = std::sin(deltaTheta * 0.5) * std::sin(deltaTheta * 0.5) +
+				std::cos(theta1) * std::cos(theta2) *
+				std::sin(delatLambda * 0.5) * std::sin(delatLambda * 0.5),
+
+			c = 2 * std::atan2(std::sqrt(a), std::sqrt(1 - a)),
+
+			d = EARTH_MEAN_RADIUS * c;
+
+		return d;
 	}
 	std::string Tile::tileId(int z, int x, int y) {
 		std::stringstream ss{};

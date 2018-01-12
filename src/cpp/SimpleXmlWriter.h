@@ -1,7 +1,9 @@
+#ifndef SIMPLE_XML_WRITER_H
+#define SIMPLE_XML_WRITER_H
+
 #include <fstream>
 #include <stack>
 #include <string>
-#include <iomanip>
 
 namespace avl {
 
@@ -11,37 +13,36 @@ namespace avl {
 	};
 
 	class SimpleXmlWriter {
-		private:
-			std::string outFileName;
-			std::ofstream outFile;
+	private:
+		std::string outFileName;
+		std::ofstream outFile;
 
-			int currentIndent = 0;
-			std::stack<OpenTag> openTags;
-			bool tagOpen = false;
+		int currentIndent = 0;
+		std::stack<OpenTag> openTags;
+		bool tagOpen = false;
 
-			void openFile();
+		void openFile();
 
-			template<class T, class ...Args>
-			SimpleXmlWriter& write(bool, std::string&&, T&&, Args...);
-			template<class T>
-			SimpleXmlWriter& write(bool, std::string&&, T&&);
-			SimpleXmlWriter& write(bool);
+		template<class T, class ...Args>
+		SimpleXmlWriter& write(bool, std::string&&, T&&, Args...);
+		template<class T>
+		SimpleXmlWriter& write(bool, std::string&&, T&&);
+		SimpleXmlWriter& write(bool);
 
-			void writeIndent(int=-1);
+		void writeIndent(int=-1);
 
-		public:
-			SimpleXmlWriter(std::string&);
-			SimpleXmlWriter(std::string&&);
-			~SimpleXmlWriter();
+	public:
+		SimpleXmlWriter(std::string&);
+		SimpleXmlWriter(std::string&&);
+		~SimpleXmlWriter();
 
-			template<class ...Args>
-			SimpleXmlWriter& openTag(std::string&&, Args...);
+		template<class ...Args>
+		SimpleXmlWriter& openTag(std::string&&, Args...);
 
-			template<class ...Args>
-			SimpleXmlWriter& addTag(std::string&&, Args...);
+		template<class ...Args>
+		SimpleXmlWriter& addTag(std::string&&, Args...);
 
-
-			SimpleXmlWriter& closeTag();
+		SimpleXmlWriter& closeTag();
 	};
 
 	template<class ...Args>
@@ -82,3 +83,5 @@ namespace avl {
 	}
 
 }
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef AVL_TILE_H
+#define AVL_TILE_H
+
 #include <array>
 #include <unordered_map>
 #include <vector>
@@ -21,36 +24,45 @@ namespace avl {
 	};
 
 	class Tile {
-		private:
-			int nodesRemoved = 0;
+	private:
+		int nodesRemoved = 0;
 
-			bool getNodesInsideSquare(int, int, std::vector<int>&);
-			double getAverageHeight(std::vector<int>&);
-			bool okToSimplify(std::vector<int>&, double);
+		bool getNodesOfSquare(int, int, int, std::vector<int>&);
+		bool isSquareValid(int, std::vector<int>&);
+		std::vector<int> getNodesInsideSquare(std::vector<int>&);
+		double getAverageHeight(std::vector<int>&);
+		bool okToSimplify(double, std::vector<int>&);
+		int condenseNodesInsideSquare(std::vector<int>&);
 
-		public:
-			int z;
-			int x;
-			int y;
+	public:
+		int z;
+		int x;
+		int y;
 
-			std::string id;
+		std::string id;
 
-			std::string file;
+		std::string file;
 
-			std::array<Node, 256 * 256> nodes;
-			std::unordered_map<int, std::vector<int>> edgeMap;
+		std::array<Node, 256 * 256> nodes;
+		std::unordered_map<int, std::vector<int>> edgeMap;
 
-			Tile();
-			Tile(int, int, int, std::string&);
+		Tile();
+		Tile(int, int, int, std::string&);
 
-			bool loadNodes(std::string&, int&);
-			bool makeEdges();
-			bool simplify();
+		int numNodes();
+		int numEdges();
 
-			static double color2height(int, int, int);
-			static double getLng(int, double);
-			static double getLat(int, double);
-			static std::string tileId(int, int, int);
+		bool loadNodes(std::string&, int&);
+		int makeEdges();
+		int simplify();
+
+		static double color2height(int, int, int);
+		static double getLng(int, double);
+		static double getLat(int, double);
+		static double distance(double, double, double, double);
+		static std::string tileId(int, int, int);
 	};
 
 }
+
+#endif

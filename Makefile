@@ -1,18 +1,39 @@
+OBJECTS=main.o \
+	src/cpp/Tile.o \
+	src/cpp/SimpleXmlWriter.o \
+	src/cpp/GeojsonWriter.o \
+	src/cpp/PNG_Image.o \
+	src/cpp/utils.o
 
+#OBJECTS=$(SOURCES:.cpp=.o)
 
-OBJS = main.cpp \
-	src/cpp/Tile.cpp \
-	src/cpp/SimpleXmlWriter.cpp \
-	src/cpp/PNG_Image.cpp \
-	src/cpp/utils.cpp
+CC=g++
 
-CC = g++
+CFLAGS=-Wall -c -std=gnu++11
 
-COMPILER_FLAGS = -w -std=gnu++11
+LIBS=-lpng16
 
-LINKER_FLAGS = -lpng16
+EXECUTABLE=tile_process
 
-OBJ_NAME = tile_process
+all: $(EXECUTABLE)
 
-all: $(OBJS)
-	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME)
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $^ $(LIBS) -o $@
+
+main.o: src/cpp/SimpleXmlWriter.h src/cpp/Tile.h src/cpp/GeojsonWriter.h src/cpp/utils.h
+
+src/cpp/Tile.o: src/cpp/Tile.h
+
+src/cpp/SimpleXmlWriter.o: src/cpp/SimpleXmlWriter.h
+
+src/cpp/GeojsonWriter.o: src/cpp/GeojsonWriter.h src/cpp/Tile.h
+
+src/cpp/PNG_Image.o: src/cpp/PNG_Image.h
+
+src/cpp/utils.o: src/cpp/utils.h
+
+%.o: %.cpp
+	$(CC) $< $(CFLAGS) -o $@
+
+clean:
+	rm -rf src/cpp/*.o

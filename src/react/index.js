@@ -4,6 +4,8 @@ import { connect } from 'react-redux'
 import Mapboxgl from "./mapboxgl/Mapboxgl.react"
 import GeojsonSource from "./mapboxgl/GeojsonSource"
 import GeojsonLayer from "./mapboxgl/GeojsonLineLayer"
+import geojson from "../geojson.json"
+// let geojson = [];
 
 import { mapClick } from "./actions/mapClick"
 
@@ -42,11 +44,21 @@ class App extends React.Component {
 
 		let source = GeojsonSource(),
 			layer = GeojsonLayer()
-				.source(source);
+				.source(source),
+
+			geoSource = GeojsonSource(),
+			geoLayer = GeojsonLayer()
+				.source(geoSource)
+				.lineWidth(1)
+				.lineOpacity(0.5)
+				.lineColor("#000");
+		geoSource.features(geojson.features);
 
 		this.state = {
 			source,
-			layer
+			layer,
+			geoSource,
+			geoLayer
 		}
 	}
 
@@ -66,8 +78,8 @@ class App extends React.Component {
 		return (
 			<div style={ { height } }>
 				<Mapboxgl onClick={ extractLngLat(this.props.onMapClick) }
-					sources={ [this.state.source] }
-					layers={ [this.state.layer] }
+					sources={ [this.state.source, this.state.geoSource] }
+					layers={ [this.state.geoLayer, this.state.layer] }
 					zoom={ 10 }
 					center={ [-110.942376, 31.334095] }
 					style={ 'mapbox://styles/mapbox/satellite-v9' }
@@ -77,5 +89,8 @@ class App extends React.Component {
 		)
 	}
 }
+
+// style={ 'mapbox://styles/mapbox/satellite-v9' }
+// style={ 'mapbox://styles/mapbox/streets-v9' }
 
 export default connect(mapStateToProps, mapDispatchToProps)(App)
