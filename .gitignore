@@ -9,3 +9,4 @@ data
 node_modules
 swapfile
 src/geojson.json
+src/cpp/*.o
