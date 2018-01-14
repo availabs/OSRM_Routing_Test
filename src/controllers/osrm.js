@@ -21,13 +21,14 @@ catch (error) {
 
 let OSRM_model = null;
 try {
-	const options = {
-		// path: process.env.OSRM_DATA,
-		path: process.env.OSRM_MODEL,
-		algorithm: "MLD"
+	if (process.env.MODEL) {
+		const options = {
+			path: process.env.OSRM_MODEL,
+			algorithm: "MLD"
+		}
+		OSRM_model = new osrm(options);
+		console.log("<OSRMcontroller> Started OSRM model.\n");
 	}
-	OSRM_model = new osrm(options);
-	console.log("<OSRMcontroller> Started OSRM model.\n");
 }
 catch (error) {
 	console.log("<OSRMcontroller> Could not start OSRM model.\n");
