@@ -39,8 +39,8 @@ void writeWay(avl::SimpleXmlWriter& writer, int wayId, avl::Node& node1, avl::No
 
 int main(int args, char* argv[]) {
 
-	if (args < 2) {
-		avl::log("You must supply a directory argument.");
+	if (args < 3) {
+		avl::log("You must supply a directory and out file arguments.");
 		return 1;
 	}
 
@@ -49,6 +49,7 @@ int main(int args, char* argv[]) {
 	if (directory[length - 1] == '/') {
 		directory = directory.substr(0, length - 1);
 	}
+	std::string outFile{ argv[2] };
 
 	DIR* dir{ nullptr };
 	struct dirent* ent;
@@ -87,7 +88,7 @@ int main(int args, char* argv[]) {
 		}
 		avl::log("Generated:", tiles.size(), "tiles");
 
-		avl::SimpleXmlWriter writer{ "test_1.osm" };
+		avl::SimpleXmlWriter writer{ outFile };
 		writer.openTag("osm", "version", "0.6");
 
 		double minLat{ avl::Tile::getLat(zoom, maxY + 1) },
