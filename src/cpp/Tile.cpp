@@ -16,6 +16,8 @@ namespace avl {
 	constexpr double TO_RAD = M_PI / 180.0;
 	constexpr double EARTH_MEAN_RADIUS = 6371000.0;
 
+	const int MAX_SQUARE_SIZE = 32;
+
 	Node::Node():
 		lat{ 0.0 }, lng{ 0.0 }, height{ 0.0 }, id{ -1 }, simplified{ false }, active{ false } {}
 	Node::Node(double lt, double lg, double h, int i, bool s, bool a):
@@ -78,21 +80,25 @@ namespace avl {
 			for (int c{ 0 }; c < 256; ++c) {
 				int i = r * 256 + c;
 				edgeMap[i] = std::vector<int>{};
+
 				// south
 				if (r < 255) {
 					edgeMap[i].push_back(i + 256);
 					++num;
 				}
+
 				// east
 				if (c < 255) {
 					edgeMap[i].push_back(i + 1);
 					++num;
 				}
+
 				// south-east
 				if (r < 255 && c < 255) {
 					edgeMap[i].push_back(i + 256 + 1);
 					++num;
 				}
+				
 				// south-west
 				if (r < 255 && c > 0) {
 					edgeMap[i].push_back(i + 256 - 1);
@@ -111,35 +117,43 @@ namespace avl {
 
 		std::vector<int> square{}, temp{};
 
-		for (int r{ 0 }; r < 256 - 4; ++r) {
-			for (int c{ 0 }; c < 256 - 4; ++c) {
-				int size{ 4 },
-					successfulSize{ 0 };
+		for (auto size : { 64, 32, 16, 8, 4 }) {
 
-				while (size <= 64 && getNodesOfSquare(r, c, size, temp)) {
+			int stagger{ 0 };
 
-					if (!isSquareValid(size, temp)) break;
+			for (int r{ 0 }; r < 256; r += (size / 2)) {
+				for (int c{ stagger % 2 ? size : 0 }; c < 256; c += (size * 2)) {
+					// int size{ 4 },
+					// 	successfulSize{ 0 };
 
-					std::vector<int> inside{ getNodesInsideSquare(temp) };
+					while (size <= MAX_SQUARE_SIZE && getNodesOfSquare(r, c, size, temp)) {
 
-					double avgHeight{ getAverageHeight(inside) };
+						if (!isSquareValid(size, temp)) break;
 
-					if (!okToSimplify(avgHeight, inside)) break;
+						std::vector<int> inside{ getNodesInsideSquare(temp) };
 
-					square = temp;
-					successfulSize = size;
-					++size;
+						double avgHeight{ getAverageHeight(inside) };
+
+						if (!okToSimplify(avgHeight, inside)) break;
+
+						square = temp;
+						// successfulSize = size;
+						// ++size;
+					}
+
+					// if (successfulSize) {
+					if (square.size()) {
+						nodesRemoved += condenseNodesInsideSquare(square);
+
+						// c += successfulSize - 2;
+					}
+
+					square.clear();
+					temp.clear();
 				}
-
-				if (successfulSize) {
-					nodesRemoved += condenseNodesInsideSquare(square);
-
-					c += successfulSize - 2;
-				}
-
-				square.clear();
-				temp.clear();
+				++stagger;
 			}
+
 		}
 		log("<Tile::simplify> [Tile: " + id + "] Removed", nodesRemoved, "nodes.");
 		return nodesRemoved;

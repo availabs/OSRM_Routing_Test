@@ -25,17 +25,30 @@ function process_way(profile, way, result)
 	result.forward_speed = profile.default_speed
 	result.backward_speed = profile.default_speed
 
-	local sslope = way:get_value_by_key('slope')
-	if sslope then
-		local slope = tonumber(sslope)
-		if slope > 0 then
+	local height_delta = way:get_value_by_key('height_delta')
+	local distance = way:get_value_by_key('distance')
+
+	if height_delta and distance then
+		height_delta = tonumber(height_delta)
+		distance = tonumber(distance)
+		result.forward_speed = 6 * math.exp(-3.5 * math.abs(height_delta / distance + 0.05));
+		result.backward_speed = 6 * math.exp(-3.5 * math.abs(-height_delta / distance + 0.05));
+	end
+--[[
+	if height_delta then
+		height_delta = tonumber(height_delta)
+		if height_delta > 0 then
 			result.forward_speed = profile.default_speed - 4
 			result.backward_speed = profile.default_speed + 4
-		elseif slope < 0 then
+		elseif height_delta < 0 then
 			result.forward_speed = profile.default_speed + 4
 			result.backward_speed = profile.default_speed - 4
 		end
 	end
+]]
+--[[
+W = 6 * Math.exp(-3.5 * Math.abs(delta_h/d + 0.05));
+]]
 end
 
 function process_turn(profile, turn)

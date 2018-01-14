@@ -15,20 +15,22 @@
 	#include "src/cpp/GeojsonWriter.h"
 #endif
 
-void writeWay(avl::SimpleXmlWriter& writer, int wayId, int nodeId1, int nodeId2) {
-	writer.openTag("way", "id", wayId, "visible", "true", "version", 1)
-		.addTag("nd", "ref", nodeId1)
-		.addTag("nd", "ref", nodeId2)
-		.addTag("tag", "k", "oneway", "v", "no")
-		.addTag("tag", "k", "duration", "v", "PT5M")
-		.addTag("tag", "k", "highway", "v", "path");
-	writer.closeTag();
-}
+// void writeWay(avl::SimpleXmlWriter& writer, int wayId, int nodeId1, int nodeId2) {
+// 	writer.openTag("way", "id", wayId, "visible", "true", "version", 1)
+// 		.addTag("nd", "ref", nodeId1)
+// 		.addTag("nd", "ref", nodeId2)
+// 		.addTag("tag", "k", "oneway", "v", "no")
+// 		.addTag("tag", "k", "duration", "v", "PT5M")
+// 		.addTag("tag", "k", "highway", "v", "path");
+// 	writer.closeTag();
+// }
 void writeWay(avl::SimpleXmlWriter& writer, int wayId, avl::Node& node1, avl::Node& node2) {
+	double dist{ avl::Tile::distance(node1.lat, node1.lng, node2.lat, node2.lng) };
 	writer.openTag("way", "id", wayId, "visible", "true", "version", 1)
 		.addTag("nd", "ref", node1.id)
 		.addTag("nd", "ref", node2.id)
-		.addTag("tag", "k", "slope", "v", node2.height - node1.height)
+		.addTag("tag", "k", "height_delta", "v", node2.height - node1.height)
+		.addTag("tag", "k", "distance", "v", dist)
 		.addTag("tag", "k", "oneway", "v", "no")
 		.addTag("tag", "k", "duration", "v", "PT5M")
 		.addTag("tag", "k", "highway", "v", "path");

@@ -80,25 +80,7 @@ def getTiles(zoom, lat1, lng1, lat2=None, lng2=None):
 		tiles = [mercator(zoom, lat1, lng1)]
 
 	return tiles
-'''
-def downloadData(out_dir, tiles, api_key):
-	TILE_URL = 'https://tile.mapzen.com/mapzen/terrain/v1/terrarium/{z}/{x}/{y}.png?api_key={k}'
-
-	if not exists(out_dir):
-		mkdir(out_dir)
-
-	for (z, x, y) in tiles:
-		response = urllib.urlopen(TILE_URL.format(z=z, x=x, y=y, k=api_key))
-
-		if response.getcode() != 200:
-			raise RuntimeError("Bad tile request: {}-{}-{}".format(z, x, y))
-
-		print("Downloaded tile: {}-{}-{}".format(z, x, y))
-
-		with io.open(join(out_dir, "tile-{}-{}-{}.png".format(z, x, y)), "wb") as fp:
-			fp.write(response.read())
-	return
-'''
+	
 class ProgressBar(threading.Thread):
 	def __init__(self, tiles):
 		threading.Thread.__init__(self)
@@ -194,8 +176,8 @@ REQUIRED_ARGS = set(["zoom", "bounding_boxes", "out_dir", "num_threads"])
 
 parser = ArgumentParser(description="For downloading elevation data.")
 
-parser.add_argument('--zoom', '-z', type=int, default=14, help="Tile zoom level. Defaults to 12.")
-parser.add_argument('--bounding_boxes', '-b', default='31.450306100007623,-110.96504936101759',
+parser.add_argument('--zoom', '-z', type=int, default=12, help="Tile zoom level. Defaults to 12.")
+parser.add_argument('--bounding_boxes', '-b', default='31.492614804669472,-110.86204515413263',
 				help='''List of bounding boxes. Defaults to southern Arizona.''')
 parser.add_argument('--out_dir', '-o', default="downloaded_tiles", help="output directory.")
 parser.add_argument('--num_threads', '-t', type=int, default=4, help="Number of threads created. Defaults to 8.")

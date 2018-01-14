@@ -4,8 +4,9 @@ import { connect } from 'react-redux'
 import Mapboxgl from "./mapboxgl/Mapboxgl.react"
 import GeojsonSource from "./mapboxgl/GeojsonSource"
 import GeojsonLayer from "./mapboxgl/GeojsonLineLayer"
-import geojson from "../geojson.json"
-// let geojson = [];
+
+// import geojson from "../geojson.json"
+let geojson = [];
 
 import { mapClick } from "./actions/mapClick"
 
@@ -81,7 +82,7 @@ class App extends React.Component {
 					sources={ [this.state.source, this.state.geoSource] }
 					layers={ [this.state.geoLayer, this.state.layer] }
 					zoom={ 10 }
-					center={ [-110.942376, 31.334095] }
+					center={ [-110.96504936101759,31.450306100007623,] }
 					style={ 'mapbox://styles/mapbox/satellite-v9' }
 					cursor="pointer"/>
 				<ClearButton onMapClick={ this.props.onMapClick }/>
