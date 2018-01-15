@@ -4,7 +4,6 @@
 #include <cmath>
 #include <numeric>
 #include <sstream>
-#include <unordered_set>
 
 #include "./utils.h"
 #include "./PNG_Image.h"
@@ -15,8 +14,6 @@ namespace avl {
 	constexpr double TO_DEG = 180.0 / M_PI;
 	constexpr double TO_RAD = M_PI / 180.0;
 	constexpr double EARTH_MEAN_RADIUS = 6371000.0;
-
-	const int MAX_SQUARE_SIZE = 32;
 
 	Node::Node():
 		lat{ 0.0 }, lng{ 0.0 }, height{ 0.0 }, id{ -1 }, simplified{ false }, active{ false } {}
@@ -108,7 +105,7 @@ namespace avl {
 		}
 		return num;
 	}
-	int Tile::simplify() {
+	int Tile::simplify(int MAX_SQUARE_SIZE, double heightPercent) {
 		if (!edgeMap.size()) {
 			log("<Tile::simplify> [Tile: " + id + "] You must run <Tile::makeEdges> before attempting to simplify.");
 			return false;
@@ -117,14 +114,14 @@ namespace avl {
 
 		std::vector<int> square{}, temp{};
 
-		for (auto size : { 64, 32, 16, 8, 4 }) {
+		// for (auto size : { 64, 32, 16, 8, 4 }) {
 
-			int stagger{ 0 };
+		// 	int stagger{ 0 };
 
-			for (int r{ 0 }; r < 256; r += (size / 2)) {
-				for (int c{ stagger % 2 ? size : 0 }; c < 256; c += (size * 2)) {
-					// int size{ 4 },
-					// 	successfulSize{ 0 };
+			for (int r{ 0 }; r < 256; ++r/* += (size / 2)*/) {
+				for (int c{ /*stagger % 2 ? size :*/ 0 }; c < 256; ++c/* += (size * 2)*/) {
+					int size{ 4 },
+						successfulSize{ 0 };
 
 					while (size <= MAX_SQUARE_SIZE && getNodesOfSquare(r, c, size, temp)) {
 
@@ -134,27 +131,27 @@ namespace avl {
 
 						double avgHeight{ getAverageHeight(inside) };
 
-						if (!okToSimplify(avgHeight, inside)) break;
+						if (!okToSimplify(avgHeight, inside, heightPercent)) break;
 
 						square = temp;
-						// successfulSize = size;
-						// ++size;
+						successfulSize = size;
+						++size;
 					}
 
-					// if (successfulSize) {
-					if (square.size()) {
+					if (successfulSize) {
+					// if (square.size()) {
 						nodesRemoved += condenseNodesInsideSquare(square);
 
-						// c += successfulSize - 2;
+						c += successfulSize - 2;
 					}
 
 					square.clear();
 					temp.clear();
 				}
-				++stagger;
+			// 	++stagger;
 			}
 
-		}
+		// }
 		log("<Tile::simplify> [Tile: " + id + "] Removed", nodesRemoved, "nodes.");
 		return nodesRemoved;
 	}
@@ -209,11 +206,11 @@ namespace avl {
 		avgHeight /= static_cast<double>(vec.size());
 		return avgHeight;
 	}
-	bool Tile::okToSimplify(double avg, std::vector<int>& vec) {
+	bool Tile::okToSimplify(double avg, std::vector<int>& vec, double heightPercent) {
 		double inv = 1.0 / avg;
 		for (auto index : vec) {
 			Node& node{ nodes[index] };
-			if (std::abs((node.height - avg) * inv) > 0.0075) {
+			if (std::abs((node.height - avg) * inv) > heightPercent) {
 				return false;
 			}
 		}
@@ -251,6 +248,11 @@ namespace avl {
 		node.lat = (minLat + maxLat) * 0.5;
 		node.lng = (minLng + maxLng) * 0.5;
 
+		int size = std::sqrt(vec.size());
+		if (size > 4) {
+			connectCorners(edgeSet, size);
+		}
+
 		for (auto i : { index - 1, index - 256, index - 256 - 1, index - 256 + 1 }) {
 			edgeSet.erase(i);
 		}
@@ -258,6 +260,45 @@ namespace avl {
 		edgeMap[index].insert(edgeMap[index].begin(), edgeSet.begin(), edgeSet.end());
 
 		return inside.size() - 1;
+	}
+	void Tile::connectCorners(std::unordered_set<int>& edgeSet, int size) {
+		std::vector<int> vec(edgeSet.begin(), edgeSet.end());
+		std::sort(vec.begin(), vec.end());
+
+		int index{ vec[0] },
+			half = size / 2;
+
+		// top-left
+		for (int i{ 2 }; i < half; ++i) {
+			int index1{ index + i },
+				index2{ index + 256 * i };
+
+			edgeMap[index1].push_back(index2);
+		}
+		// top-right
+		index = vec[size - 1];
+		for (int i{ 2 }; i < half; ++i) {
+			int index1{ index - i },
+				index2{ index + 256 * i };
+
+			edgeMap[index1].push_back(index2);
+		}
+		// bottom-left
+		index = vec[vec.size() - size];
+		for (int i{ 2 }; i < half; ++i) {
+			int index1{ index + i },
+				index2{ index - 256 * i };
+
+			edgeMap[index1].push_back(index2);
+		}
+		// bottom-right
+		index = vec[vec.size() - 1];
+		for (int i{ 2 }; i < half; ++i) {
+			int index1{ index - i },
+				index2{ index - 256 * i };
+
+			edgeMap[index1].push_back(index2);
+		}
 	}
 
 	double Tile::color2height(int r, int g, int b) {

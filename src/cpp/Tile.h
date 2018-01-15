@@ -3,6 +3,7 @@
 
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <string>
 
@@ -31,8 +32,9 @@ namespace avl {
 		bool isSquareValid(int, std::vector<int>&);
 		std::vector<int> getNodesInsideSquare(std::vector<int>&);
 		double getAverageHeight(std::vector<int>&);
-		bool okToSimplify(double, std::vector<int>&);
+		bool okToSimplify(double, std::vector<int>&, double);
 		int condenseNodesInsideSquare(std::vector<int>&);
+		void connectCorners(std::unordered_set<int>&, int);
 
 	public:
 		int z;
@@ -54,7 +56,9 @@ namespace avl {
 
 		bool loadNodes(std::string&, int&);
 		int makeEdges();
-		int simplify();
+		// first paramater is maximum square size
+		// second parameter is percent in height change OK for simplification
+		int simplify(int = 64, double = 0.025);
 
 		static double color2height(int, int, int);
 		static double getLng(int, double);

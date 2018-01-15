@@ -177,8 +177,8 @@ REQUIRED_ARGS = set(["zoom", "bounding_boxes", "out_dir", "num_threads"])
 parser = ArgumentParser(description="For downloading elevation data.")
 
 parser.add_argument('--zoom', '-z', type=int, default=12, help="Tile zoom level. Defaults to 12.")
-parser.add_argument('--bounding_boxes', '-b', default='31.492614804669472,-110.86204515413263',
-				help='''List of bounding boxes. Defaults to southern Arizona.''')
+parser.add_argument('--bounding_boxes', '-b', default='31.45447192473823,-110.96770162008457',
+				help='''List of bounding boxes. Defaults to a point in southern Arizona.''')
 parser.add_argument('--out_dir', '-o', default="downloaded_tiles", help="output directory.")
 parser.add_argument('--num_threads', '-t', type=int, default=4, help="Number of threads created. Defaults to 8.")
 
